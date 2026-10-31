@@ -8,19 +8,10 @@ import {
   Loader2,
 } from "lucide-react"
 
-const TELEGRAM_URL = "https://t.me/instagramautomationp8"
-const GITHUB_URL = "https://github.com/ayuuxh2/insta-p8"
+const GITHUB_URL = "https://github.com/VamshiMudiraj05/Instagram-Automation"
 
 export function LandingPage() {
-  const [stars, setStars] = useState<number | null>(null)
   const router = useRouter()
-
-  useEffect(() => {
-    fetch("https://api.github.com/repos/ayuuxh2/insta-p8")
-      .then(r => r.json())
-      .then(d => { if (typeof d.stargazers_count === "number") setStars(d.stargazers_count) })
-      .catch(() => {})
-  }, [])
 
   const handleLogin = () => {
     // Instagram Business Login (Instagram API with Instagram Login). client_id must be the
@@ -58,8 +49,8 @@ export function LandingPage() {
           <div className="w-7 h-7 bg-[#ffe14d] text-black flex items-center justify-center rounded-[6px]">
             <Zap className="w-3.5 h-3.5" strokeWidth={2.5} />
           </div>
-          <span className="font-mono-ui text-sm font-bold tracking-tight">insta-p8</span>
-          <span className="hidden sm:inline-block font-mono-ui text-[10px] text-neutral-500 border border-white/10 rounded-full px-2 py-0.5">open source</span>
+          <span className="font-mono-ui text-sm font-bold tracking-tight">InstaAuto</span>
+          <span className="hidden sm:inline-block font-mono-ui text-[10px] text-neutral-500 border border-white/10 rounded-full px-2 py-0.5">self-hosted</span>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -67,8 +58,7 @@ export function LandingPage() {
             className="flex items-center gap-1.5 font-mono-ui text-xs text-neutral-400 hover:text-white border border-white/10 hover:border-white/30 rounded-full px-3.5 py-1.5 transition-colors"
           >
             <Github className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Star</span>
-            {stars !== null && <span className="text-[#ffe14d]">{stars}</span>}
+            <span>GitHub</span>
           </a>
           {process.env.NODE_ENV === "development" && (
             <button
@@ -124,13 +114,6 @@ export function LandingPage() {
                   Dev Login
                 </button>
               )}
-              <a
-                href={TELEGRAM_URL} target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 font-mono-ui text-sm text-neutral-300 border border-white/15 px-6 py-4 rounded-full hover:border-[#2AABEE]/60 hover:text-[#2AABEE] transition-colors"
-              >
-                <Send className="w-4 h-4" />
-                Telegram support
-              </a>
             </div>
           </div>
         </section>
@@ -177,28 +160,21 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Community strip */}
+        {/* Open source strip */}
         <section className="px-5 md:px-10 pb-24 max-w-6xl mx-auto">
           <div className="border border-white/[0.08] rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 bg-gradient-to-br from-white/[0.03] to-transparent">
             <div>
-              <h3 className="font-serif-display text-3xl md:text-4xl mb-2">Built in the open.</h3>
+              <h3 className="font-serif-display text-3xl md:text-4xl mb-2">Private & Self-Hosted.</h3>
               <p className="text-neutral-500 text-sm max-w-md">
-                Stars, sponsors, and testers keep this project alive. Questions, bugs, feature requests —
-                the Telegram chat is where it all happens.
+                Your data stays in your Supabase database and runs on your own Vercel deployment. No monthly fees, no vendor lock-in.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href={TELEGRAM_URL} target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 bg-[#2AABEE] text-white font-mono-ui text-xs font-bold px-5 py-3 rounded-full hover:brightness-110 transition-all"
-              >
-                <Send className="w-3.5 h-3.5" /> Join Telegram
-              </a>
-              <a
                 href={GITHUB_URL} target="_blank" rel="noreferrer"
                 className="flex items-center gap-2 border border-white/15 text-neutral-300 font-mono-ui text-xs font-bold px-5 py-3 rounded-full hover:border-white/40 transition-colors"
               >
-                <Star className="w-3.5 h-3.5 text-[#ffe14d]" /> Star on GitHub
+                <Github className="w-3.5 h-3.5" /> View on GitHub
               </a>
             </div>
           </div>
@@ -208,11 +184,10 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/[0.08] px-5 md:px-10 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
         <span className="font-mono-ui text-[11px] text-neutral-600">
-          insta-p8 — open-source Instagram automation. MIT licensed.
+          InstaAuto — Self-hosted Instagram Automation.
         </span>
         <div className="flex items-center gap-5 font-mono-ui text-[11px] text-neutral-500">
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GitHub</a>
-          <a href={TELEGRAM_URL} target="_blank" rel="noreferrer" className="hover:text-[#2AABEE] transition-colors">Telegram support</a>
         </div>
       </footer>
     </div>
