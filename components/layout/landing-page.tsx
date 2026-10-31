@@ -14,9 +14,9 @@ export function LandingPage() {
   const router = useRouter()
 
   const handleLogin = () => {
-    // Instagram Business Login (Instagram API with Instagram Login). client_id must be the
-    // Instagram app ID from the Instagram product page, not the parent Meta app ID.
-    window.location.href = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID}&redirect_uri=${process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI}&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments`
+    const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || "https://instagram-automation-brown.vercel.app/api/instagram/callback"
+    const loginUrl = `https://www.facebook.com/dialog/oauth?client_id=1491272917394467&config_id=1602487991677280&display=popup&override_default_response_type=true&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&prompt=login`
+    window.location.href = loginUrl
   }
 
   const handleTestLogin = () => {

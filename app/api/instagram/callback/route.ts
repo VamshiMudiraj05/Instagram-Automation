@@ -36,7 +36,11 @@ export async function POST(request: NextRequest) {
       throw new Error("Missing Env Vars: Check INSTAGRAM_APP_ID")
     }
 
-    // 2. Exchange Code for Short Token
+    // 2. Exchange Code for Access Token
+    let accessToken: string = ""
+    let loginUserId: string = ""
+    let expiresIn = 5184000 // 60 days default
+
     const tokenParams = new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
@@ -45,57 +49,94 @@ export async function POST(request: NextRequest) {
       code,
     })
 
-    const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
+    const igRes = await fetch("https://api.instagram.com/oauth/access_token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: tokenParams.toString(),
     })
+    const igData = await igRes.json()
 
-    const tokenData = await tokenRes.json()
-    if (!tokenRes.ok) {
-      if (tokenData.error_message?.includes("authorization code has been used")) {
-        // Harmless double-fire from React StrictMode or double clicks
-        return NextResponse.json({ error: "Code already used" }, { status: 400 })
+    if (igRes.ok && igData.access_token) {
+      const shortToken = igData.access_token
+      loginUserId = igData.user_id ? igData.user_id.toString() : ""
+      const longLivedUrl = `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortToken}`
+      const longRes = await fetch(longLivedUrl)
+      const longData = await longRes.json()
+      accessToken = longData.access_token || shortToken
+      if (longData.expires_in) expiresIn = longData.expires_in
+    } else {
+      // Fallback: Exchange via Meta Graph API (Unified Login / Facebook Login for Business)
+      console.log("[v0] Exchanging code via Meta Graph API...")
+      const fbTokenUrl = `https://graph.facebook.com/v24.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+      const fbRes = await fetch(fbTokenUrl)
+      const fbData = await fbRes.json()
+
+      if (!fbRes.ok || !fbData.access_token) {
+        if (fbData.error?.message?.includes("authorization code has been used") || igData.error_message?.includes("authorization code has been used")) {
+          return NextResponse.json({ error: "Code already used" }, { status: 400 })
+        }
+        console.error("[v0] 🔴 Token Error (IG):", JSON.stringify(igData, null, 2))
+        console.error("[v0] 🔴 Token Error (FB):", JSON.stringify(fbData, null, 2))
+        return NextResponse.json({ error: fbData.error?.message || igData.error_message || "Token exchange failed" }, { status: 400 })
       }
-      console.error("[v0] 🔴 Token Error:", JSON.stringify(tokenData, null, 2))
-      return NextResponse.json({ error: tokenData.error_description || "Token failed" }, { status: 400 })
+
+      accessToken = fbData.access_token
+      if (fbData.expires_in) expiresIn = fbData.expires_in
     }
 
-    const shortToken = tokenData.access_token
-    const loginUserId = tokenData.user_id.toString()
-
-    // 3. Exchange for Long Token (60 Days)
-    const longLivedUrl = `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortToken}`
-    const longRes = await fetch(longLivedUrl)
-    const longData = await longRes.json()
-    const accessToken = longData.access_token || shortToken
-    const expiresIn = longData.expires_in || 5184000
-
-    // 4. Get Username + IG Professional Account ID (webhook-matching ID)
-    // Per Meta docs: /me?fields=user_id returns the IG_ID that matches webhook entry.id
-    // https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
-    let username = `user_${loginUserId}`
-    let businessAccountId = loginUserId // fallback
+    // 3. Get Username + IG Professional Account ID
+    let username = `user_${Date.now()}`
+    let businessAccountId = loginUserId
     let profilePic: string | null = null
 
+    // Attempt 1: graph.instagram.com/v24.0/me
     try {
       const meRes = await fetch(
         `https://graph.instagram.com/v24.0/me?fields=user_id,username,profile_picture_url&access_token=${accessToken}`
       )
       const meData = await meRes.json()
-      console.log("[v0] 📋 /me response:", JSON.stringify(meData))
+      console.log("[v0] 📋 /me (Instagram) response:", JSON.stringify(meData))
 
       if (meData.username) username = meData.username
       if (meData.profile_picture_url) profilePic = meData.profile_picture_url
-      if (meData.user_id) {
-        businessAccountId = meData.user_id.toString()
-        console.log(`[v0] 🎯 Got IG Professional Account ID (user_id): ${businessAccountId}`)
-      } else {
-        console.warn(`[v0] ⚠️ /me did not return user_id, using loginUserId: ${loginUserId}`)
-      }
+      if (meData.user_id) businessAccountId = meData.user_id.toString()
+      else if (meData.id) businessAccountId = meData.id.toString()
     } catch (e) {
-      console.error("[v0] /me request failed:", e)
+      console.warn("[v0] IG /me failed:", e)
     }
+
+    // Attempt 2: If no businessAccountId, check accounts via graph.facebook.com
+    if (!businessAccountId) {
+      try {
+        const pagesRes = await fetch(
+          `https://graph.facebook.com/v24.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,profile_picture_url}&access_token=${accessToken}`
+        )
+        const pagesData = await pagesRes.json()
+        console.log("[v0] 📋 /me/accounts (Facebook) response:", JSON.stringify(pagesData))
+        const pageWithIg = pagesData.data?.find((p: any) => p.instagram_business_account)
+        if (pageWithIg?.instagram_business_account) {
+          const ig = pageWithIg.instagram_business_account
+          businessAccountId = ig.id.toString()
+          if (ig.username) username = ig.username
+          if (ig.profile_picture_url) profilePic = ig.profile_picture_url
+          if (pageWithIg.access_token) accessToken = pageWithIg.access_token
+        }
+      } catch (e) {
+        console.warn("[v0] FB /me/accounts failed:", e)
+      }
+    }
+
+    // Attempt 3: Direct FB /me fallback
+    if (!businessAccountId) {
+      try {
+        const fbMeRes = await fetch(`https://graph.facebook.com/v24.0/me?fields=id,name&access_token=${accessToken}`)
+        const fbMeData = await fbMeRes.json()
+        if (fbMeData.id) businessAccountId = fbMeData.id.toString()
+        if (fbMeData.name && username.startsWith("user_")) username = fbMeData.name
+      } catch (e) {}
+    }
+
+    const finalUserId = loginUserId || businessAccountId || String(Date.now())
 
     // 6. Save/Update User
     const supabase = await getSupabaseServerClient()
@@ -109,16 +150,16 @@ export async function POST(request: NextRequest) {
       page_id: businessAccountId, // Always keep in sync
     }
 
-    console.log(`[v0] 💾 Saving user: ${username} | id=${loginUserId} | biz_id=${businessAccountId}`)
+    console.log(`[v0] 💾 Saving user: ${username} | id=${finalUserId} | biz_id=${businessAccountId}`)
 
     const { error: upsertError } = await supabase
       .from("users")
-      .upsert({ id: loginUserId, ...updates }, { onConflict: "id" })
+      .upsert({ id: finalUserId, ...updates }, { onConflict: "id" })
 
     if (upsertError) throw upsertError
 
-    const response = NextResponse.json({ success: true, username, userId: loginUserId, profilePic })
-    response.cookies.set("insta_session", JSON.stringify({ username, userId: loginUserId }), {
+    const response = NextResponse.json({ success: true, username, userId: finalUserId, profilePic })
+    response.cookies.set("insta_session", JSON.stringify({ username, userId: finalUserId }), {
       path: "/",
       maxAge: expiresIn,
       sameSite: "lax",
