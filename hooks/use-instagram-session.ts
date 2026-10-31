@@ -46,8 +46,23 @@ export function useInstagramSession() {
                     isExchangingRef.current = false
                 }
             }
-            // CASE B: Restore Session from LocalStorage
+            // CASE B: Restore Session from Database or LocalStorage
             else {
+                try {
+                    const activeRes = await fetch("/api/instagram/active-user")
+                    const activeData = await activeRes.json()
+                    if (activeData.user) {
+                        localStorage.setItem("ig_user_id", activeData.user.userId)
+                        localStorage.setItem("ig_username", activeData.user.username)
+                        setUserId(activeData.user.userId)
+                        setUsername(activeData.user.username)
+                        setIsLoading(false)
+                        return
+                    }
+                } catch (e) {
+                    console.warn("Could not check active user:", e)
+                }
+
                 const savedId = localStorage.getItem("ig_user_id")
                 const savedName = localStorage.getItem("ig_username")
 
