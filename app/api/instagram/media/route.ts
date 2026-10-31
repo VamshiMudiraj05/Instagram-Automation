@@ -21,33 +21,65 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Instagram not connected" }, { status: 401 })
     }
 
-    // 2. Fetch Media
+    // 2. Fetch Media from Meta Graph API
+    let metaItems: any[] = []
     const isFb = user.access_token.startsWith("EAA")
     const url = isFb
       ? `https://graph.facebook.com/v24.0/17841479501766910/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=24&access_token=${user.access_token}`
       : `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=24&access_token=${user.access_token}`
 
-    console.log("[v0] Fetching Media from:", url)
-
-    const res = await fetch(url, { cache: 'no-store' })
-    const data = await res.json()
-
-    if (data.error) {
-      console.warn("[v0] Instagram Media warning:", data.error)
-      // Return empty data gracefully instead of 401 so the dashboard stays healthy
-      return NextResponse.json({ data: [] })
+    try {
+      const res = await fetch(url, { cache: "no-store" })
+      const data = await res.json()
+      if (Array.isArray(data?.data)) {
+        metaItems = data.data.map((m: any) => ({
+          id: m.id,
+          caption: m.caption || "",
+          media_type: m.media_type || "VIDEO",
+          permalink: m.permalink || `https://www.instagram.com/reel/${m.id}/`,
+          image_url: m.thumbnail_url || m.media_url || null,
+          timestamp: m.timestamp || new Date().toISOString(),
+        }))
+      }
+    } catch (e) {
+      console.warn("[media] Graph API media fetch error:", e)
     }
 
-    // Normalize: pick thumbnail_url for videos, media_url for images.
-    // Skips items with neither URL so we never return the broken `image_url: null` shape.
-    const normalized = (data.data || [])
-      .map((m: any) => ({
-        ...m,
-        image_url: m.thumbnail_url || m.media_url || null,
-      }))
-      .filter((m: any) => typeof m.image_url === "string" && m.image_url.length > 0)
+    // 3. Fetch cached posts / reels from Supabase
+    let cachedItems: any[] = []
+    try {
+      const { data: cache } = await supabase
+        .from("media_cache")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false })
 
-    return NextResponse.json({ data: normalized })
+      if (cache && cache.length > 0) {
+        cachedItems = cache.map((c: any) => ({
+          id: c.media_id,
+          caption: c.caption || "Instagram Reel",
+          media_type: c.media_type || "VIDEO",
+          permalink: c.permalink || `https://www.instagram.com/reel/${c.media_id}/`,
+          image_url: c.image_url || null,
+          timestamp: c.timestamp || new Date().toISOString(),
+        }))
+      }
+    } catch (e) {
+      console.warn("[media] Cache fetch error:", e)
+    }
+
+    // Merge without duplicates (Graph API takes precedence)
+    const seenIds = new Set<string>()
+    const merged: any[] = []
+
+    for (const item of [...metaItems, ...cachedItems]) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id)
+        merged.push(item)
+      }
+    }
+
+    return NextResponse.json({ data: merged })
   } catch (error) {
     console.error("[v0] Server Error:", error)
     return NextResponse.json({ error: "Server Error" }, { status: 500 })

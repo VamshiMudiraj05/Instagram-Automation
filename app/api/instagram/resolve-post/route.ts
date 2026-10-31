@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getSupabaseServerClient } from "@/lib/supabase-server"
 
 function shortcodeToId(shortcode: string): string {
   try {
@@ -47,6 +48,25 @@ export async function GET(request: NextRequest) {
       }
     } catch (e) {
       console.warn("Embed fetch failed:", e)
+    }
+
+    // Auto-save to media_cache so it appears permanently in the feed
+    try {
+      const supabase = await getSupabaseServerClient()
+      const { data: user } = await supabase.from("users").select("id").limit(1).single()
+      if (user?.id) {
+        await supabase.from("media_cache").upsert({
+          user_id: user.id,
+          media_id: numericId,
+          media_type: "VIDEO",
+          caption,
+          image_url: imageUrl,
+          permalink: `https://www.instagram.com/reel/${shortcode}/`,
+          media_product_type: "REELS",
+        }, { onConflict: "user_id,media_id" })
+      }
+    } catch (e) {
+      console.warn("Could not save to media_cache:", e)
     }
 
     return NextResponse.json({
