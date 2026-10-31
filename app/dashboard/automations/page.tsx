@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { ArrowLeft, Bot, FolderPlus, Grid2X2, Inbox, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react"
 import { useInstagramSession } from "@/hooks/use-instagram-session"
 import { QuickAutomationForm } from "@/components/dashboard/QuickAutomationForm"
@@ -8,8 +9,9 @@ import { AssistantSettings } from "@/components/dashboard/AssistantSettings"
 import { CreateRuleForm } from "@/components/dashboard/CreateRuleForm"
 import type { Automation } from "@/lib/types"
 
-export default function AutomationsPage() {
+function AutomationsContent() {
   const { userId, isLoading: sessionLoading } = useInstagramSession()
+  const searchParams = useSearchParams()
   const [rules, setRules] = useState<Automation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -18,7 +20,7 @@ export default function AutomationsPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate, setShowCreate] = useState(searchParams.get("new") === "true")
   const refresh = useCallback(async () => {
     if (!userId) return
     try {
@@ -72,7 +74,7 @@ export default function AutomationsPage() {
       <CreateRuleForm key={edit.id} userId={userId} triggerSource={edit.trigger_source} editRule={edit} onSuccess={() => { setEdit(null); void refresh() }} />
     </section> : <>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-2xl font-semibold">My Automations</h2><p className="mt-1 text-sm text-black/50 dark:text-white/50">Create, manage and monitor your Instagram workflows.</p></div><button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#1473e6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0d63cc]"><Plus className="size-4" /> New Automation</button></div>
-      {showCreate && <div className="mb-8 rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#18191b] sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">New automation</h3><p className="mt-1 text-xs text-black/50 dark:text-white/50">Choose a trigger and write the reply.</p></div><button onClick={() => setShowCreate(false)} className="rounded-md p-2 text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"><X className="size-4" /></button></div><QuickAutomationForm userId={userId} initialSource="dm" onSuccess={() => { setSaved(true); setShowCreate(false); void refresh() }} /></div>}
+      {showCreate && <div className="mb-8 rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#18191b] sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">New automation</h3><p className="mt-1 text-xs text-black/50 dark:text-white/50">Choose a trigger and write the reply.</p></div><button onClick={() => setShowCreate(false)} className="rounded-md p-2 text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"><X className="size-4" /></button></div><QuickAutomationForm userId={userId} initialSource="comment" onSuccess={() => { setSaved(true); setShowCreate(false); void refresh() }} /></div>}
       {saved && <p role="status" className="mb-4 text-xs text-muted-foreground">Saved and active.</p>}
       <div className="mb-6 flex flex-wrap items-center gap-3"><label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-sm dark:border-white/10 dark:bg-[#18191b]"><Search className="size-4 text-black/40 dark:text-white/40" /><input aria-label="Search automations" placeholder="Search all automations" value={query} onChange={event => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-black/40 dark:placeholder:text-white/40" /></label><button className="inline-flex h-10 items-center gap-2 rounded-lg border border-dashed border-black/20 px-3 text-sm text-black/60 hover:bg-black/5 dark:border-white/20 dark:text-white/60 dark:hover:bg-white/5"><FolderPlus className="size-4" /> New folder</button></div>
       <section className="mt-10">
@@ -97,4 +99,12 @@ export default function AutomationsPage() {
       </section>
     </div>
   </div>
+}
+
+export default function AutomationsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex items-center justify-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>}>
+      <AutomationsContent />
+    </Suspense>
+  )
 }

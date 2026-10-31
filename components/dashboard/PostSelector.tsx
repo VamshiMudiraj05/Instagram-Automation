@@ -30,7 +30,7 @@ export function PostSelector({
   onSelect,
   initialMedia = null,
 }: PostSelectorProps) {
-  const [mode, setMode] = useState<"all" | "specific">(selectedMediaId ? "specific" : "all")
+  const [mode, setMode] = useState<"all" | "specific">("specific")
   const [mediaList, setMediaList] = useState<InstagramMediaItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Bot, CheckCircle2, Loader2, MessageSquare, Plus, Users, Workflow } from "lucide-react"
+import { ArrowRight, Bot, CheckCircle2, Loader2, MessageSquare, Plus, Sparkles, Users, Workflow } from "lucide-react"
 import { useInstagramSession } from "@/hooks/use-instagram-session"
 
 interface DashboardStats {
@@ -30,9 +30,40 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1440px] px-5 py-7 sm:px-8 lg:px-10">
       <header className="flex flex-col justify-between gap-5 border-b border-border pb-7 sm:flex-row sm:items-end">
-        <div><p className="text-sm text-muted-foreground">Welcome back, {username || "creator"}</p><h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">Your workspace</h1></div>
-        <Link href="/dashboard/automations" className="inline-flex h-10 w-fit items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Plus className="size-4" />Create workflow</Link>
+        <div>
+          <p className="text-sm text-muted-foreground">Welcome back, {username || "creator"}</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">Your workspace</h1>
+        </div>
+        <Link
+          href="/dashboard/automations?new=true"
+          className="inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all"
+        >
+          <Plus className="size-4" />
+          Create Automation
+        </Link>
       </header>
+
+      {/* Quick Create Automation Banner */}
+      <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border bg-gradient-to-r from-card via-card to-primary/5 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Sparkles className="size-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Comment-to-DM Reel Automation</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Automatically reply to comments and send private DMs for your reels.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/dashboard/automations?new=true"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all shrink-0"
+        >
+          <Plus className="size-4" />
+          Create Automation
+        </Link>
+      </div>
 
       <section className="grid border-b border-border sm:grid-cols-2 lg:grid-cols-4" aria-label="Account summary">
         <Metric label="Workflows" value={metrics?.totalAutomations ?? 0} icon={Workflow} />

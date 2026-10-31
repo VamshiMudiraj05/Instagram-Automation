@@ -7,12 +7,12 @@ import { PostSelector, InstagramMediaItem } from "@/components/dashboard/PostSel
 
 type Source = Automation["trigger_source"]
 
-export function QuickAutomationForm({ userId, initialSource, onSuccess }: {
+export function QuickAutomationForm({ userId, initialSource = "comment", onSuccess }: {
   userId: string
-  initialSource: Source
+  initialSource?: Source
   onSuccess: (source: Source) => void
 }) {
-  const [source, setSource] = useState<Source>(initialSource)
+  const [source, setSource] = useState<Source>(initialSource || "comment")
   const [keyword, setKeyword] = useState("")
   const [answer, setAnswer] = useState("")
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null)
