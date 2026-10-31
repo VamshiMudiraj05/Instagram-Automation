@@ -97,15 +97,20 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 function keywordMatches(triggerValue: string, text: string): boolean {
+  if (!triggerValue || !text) return false
+  if (triggerValue === "*" || triggerValue === "any") return true
+  const cleanText = text.toLowerCase()
   return triggerValue
     .split(",")
-    .map((k: string) => k.trim())
+    .map((k: string) => k.trim().toLowerCase())
     .filter(Boolean)
     .some((k: string) => {
+      if (k === "*" || k === "any") return true
+      if (cleanText.includes(k)) return true
       try {
-        return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)
+        return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(cleanText)
       } catch {
-        return text.includes(k.toLowerCase())
+        return false
       }
     })
 }
@@ -318,15 +323,16 @@ export async function POST(request: NextRequest) {
 
           const commentAutomations = automations.filter((a: any) => a.trigger_source === "comment")
 
-          // Priority: specific post reply-all → specific post keyword → global keyword
+          // Priority: specific post reply-all → specific post keyword → global reply-all → global keyword
           let match = commentAutomations.find(
-            (a: any) => isMediaMatch(a.specific_media_id, mediaId) && a.trigger_type === "reply_all",
+            (a: any) =>
+              isMediaMatch(a.specific_media_id, mediaId) &&
+              (a.trigger_type === "reply_all" || a.trigger_value === "ALL_COMMENTS" || a.trigger_value === "*" || a.trigger_value === "any"),
           )
           if (!match) {
             match = commentAutomations.find(
               (a: any) =>
                 isMediaMatch(a.specific_media_id, mediaId) &&
-                a.trigger_type === "keyword" &&
                 keywordMatches(a.trigger_value, commentText),
             )
           }
@@ -334,7 +340,13 @@ export async function POST(request: NextRequest) {
             match = commentAutomations.find(
               (a: any) =>
                 !a.specific_media_id &&
-                a.trigger_type === "keyword" &&
+                (a.trigger_type === "reply_all" || a.trigger_value === "ALL_COMMENTS" || a.trigger_value === "*" || a.trigger_value === "any"),
+            )
+          }
+          if (!match) {
+            match = commentAutomations.find(
+              (a: any) =>
+                !a.specific_media_id &&
                 keywordMatches(a.trigger_value, commentText),
             )
           }
