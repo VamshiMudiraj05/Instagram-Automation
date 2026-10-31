@@ -43,6 +43,28 @@ const DEFAULT_PUBLIC_REPLIES = ["Check your DMs! 📥", "Sent! 🔥", "Check inb
 // After this, we send a single "couldn't verify your follow" message and stop spamming the user.
 const UNLOCK_GATE_MAX_ATTEMPTS = 3
 
+function shortcodeToId(shortcode: string): string {
+  try {
+    let id = 0n
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    for (let i = 0; i < shortcode.length; i++) {
+      const idx = alphabet.indexOf(shortcode[i])
+      if (idx === -1) return shortcode
+      id = id * 64n + BigInt(idx)
+    }
+    return id.toString()
+  } catch {
+    return shortcode
+  }
+}
+
+function isMediaMatch(savedId: string | null | undefined, incomingId: string): boolean {
+  if (!savedId) return true
+  if (savedId === incomingId) return true
+  if (shortcodeToId(savedId) === incomingId) return true
+  return false
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const mode = searchParams.get("hub.mode")
@@ -250,7 +272,10 @@ export async function POST(request: NextRequest) {
 
       if (!user) {
         const { data: allUsers } = await supabase.from("users").select("*")
-        if (allUsers) {
+        if (allUsers && allUsers.length === 1) {
+          user = allUsers[0]
+          console.log(`[webhook] Auto-bound webhook to single user ${user.username} (${user.id})`)
+        } else if (allUsers) {
           for (const candidate of allUsers) {
             if (!candidate.access_token) continue
             if (await verifyIdOwnership(candidate.access_token, webhookId)) {
@@ -294,12 +319,12 @@ export async function POST(request: NextRequest) {
 
           // Priority: specific post reply-all → specific post keyword → global keyword
           let match = commentAutomations.find(
-            (a: any) => a.specific_media_id === mediaId && a.trigger_type === "reply_all",
+            (a: any) => isMediaMatch(a.specific_media_id, mediaId) && a.trigger_type === "reply_all",
           )
           if (!match) {
             match = commentAutomations.find(
               (a: any) =>
-                a.specific_media_id === mediaId &&
+                isMediaMatch(a.specific_media_id, mediaId) &&
                 a.trigger_type === "keyword" &&
                 keywordMatches(a.trigger_value, commentText),
             )
