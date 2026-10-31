@@ -38,6 +38,7 @@ export function PostSelector({
   const [filterType, setFilterType] = useState<"ALL" | "POST" | "REEL">("ALL")
   const [isBrowsing, setIsBrowsing] = useState<boolean>(!selectedMediaId)
   const [currentSelectedMedia, setCurrentSelectedMedia] = useState<InstagramMediaItem | null>(initialMedia)
+  const [manualUrl, setManualUrl] = useState("")
 
   const fetchMedia = async () => {
     if (!userId) return
@@ -81,11 +82,25 @@ export function PostSelector({
         const found = mediaList.find((m) => m.id === selectedMediaId)
         if (found) setCurrentSelectedMedia(found)
       }
-    } else {
-      setMode("all")
-      setCurrentSelectedMedia(null)
     }
   }, [selectedMediaId, mediaList])
+
+  const handleApplyManualUrl = () => {
+    if (!manualUrl.trim()) return
+    const url = manualUrl.trim()
+    const match = url.match(/(?:reel|p)\/([A-Za-z0-9_-]+)/)
+    const mediaId = match ? match[1] : url
+    const customItem: InstagramMediaItem = {
+      id: mediaId,
+      caption: `Post: ${url.startsWith("http") ? url : "ID " + mediaId}`,
+      media_type: url.includes("/reel/") ? "VIDEO" : "IMAGE",
+      permalink: url.startsWith("http") ? url : `https://instagram.com/p/${mediaId}`,
+      image_url: null,
+      timestamp: new Date().toISOString(),
+    }
+    handleSelectPost(customItem)
+    setManualUrl("")
+  }
 
   const handleSelectMode = (newMode: "all" | "specific") => {
     setMode(newMode)
@@ -237,6 +252,25 @@ export function PostSelector({
                     Keep selected
                   </button>
                 )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyManualUrl(); } }}
+                  placeholder="Paste Instagram Reel or Post link..."
+                  className="flex-1 h-8 px-3 text-xs bg-muted/40 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyManualUrl}
+                  disabled={!manualUrl.trim()}
+                  className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shrink-0 disabled:opacity-40"
+                >
+                  Select Link
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
