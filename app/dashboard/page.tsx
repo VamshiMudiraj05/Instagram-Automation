@@ -17,11 +17,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!userId) return
-    fetch(`/api/dashboard/stats?userId=${userId}`)
-      .then(response => response.json())
-      .then(data => { if (data && !data.error) setStats(data) })
-      .catch(error => console.error("Failed to load dashboard stats", error))
-      .finally(() => setLoading(false))
+
+    const loadStats = () => {
+      fetch(`/api/dashboard/stats?userId=${userId}`)
+        .then(response => response.json())
+        .then(data => { if (data && !data.error) setStats(data) })
+        .catch(error => console.error("Failed to load dashboard stats", error))
+        .finally(() => setLoading(false))
+    }
+
+    loadStats()
+    const interval = setInterval(loadStats, 10000)
+    window.addEventListener("focus", loadStats)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("focus", loadStats)
+    }
   }, [userId])
 
   if (sessionLoading || loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
