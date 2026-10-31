@@ -249,6 +249,9 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
       })
       if (res.ok) {
         toast.success(isEditing ? "Automation updated" : "Automation is live")
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("automation-changed"))
+        }
         onSuccess()
       } else {
         toast.error("Could not save — try again")

@@ -64,6 +64,9 @@ export function QuickAutomationForm({ userId, initialSource = "comment", onSucce
       setAnswer("")
       setSelectedMediaId(null)
       setSelectedMedia(null)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("automation-changed"))
+      }
       onSuccess(source)
     } catch {
       setError("Could not save. Check your connection and try again.")

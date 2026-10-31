@@ -2,16 +2,35 @@
 
 import { useCallback, useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, Bot, FolderPlus, Grid2X2, Inbox, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react"
+import {
+  ArrowLeft,
+  Bot,
+  Film,
+  FolderPlus,
+  Globe,
+  Grid2X2,
+  Inbox,
+  Loader2,
+  Lock,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react"
 import { useInstagramSession } from "@/hooks/use-instagram-session"
 import { QuickAutomationForm } from "@/components/dashboard/QuickAutomationForm"
 import { AssistantSettings } from "@/components/dashboard/AssistantSettings"
 import { CreateRuleForm } from "@/components/dashboard/CreateRuleForm"
+import { cn } from "@/lib/utils"
 import type { Automation } from "@/lib/types"
 
 function AutomationsContent() {
   const { userId, isLoading: sessionLoading } = useInstagramSession()
   const searchParams = useSearchParams()
+  const selectedId = searchParams.get("id")
   const [rules, setRules] = useState<Automation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -21,6 +40,7 @@ function AutomationsContent() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [showCreate, setShowCreate] = useState(searchParams.get("new") === "true")
+
   const refresh = useCallback(async () => {
     if (!userId) return
     try {
@@ -29,10 +49,28 @@ function AutomationsContent() {
       if (!response.ok || !Array.isArray(data)) throw new Error()
       setRules(data)
       setError("")
-    } catch { setError("Could not load automations. Please retry.") }
-    finally { setLoading(false) }
+    } catch {
+      setError("Could not load automations. Please retry.")
+    } finally {
+      setLoading(false)
+    }
   }, [userId])
-  useEffect(() => { void refresh() }, [refresh])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  // Scroll to selected automation if specified in query params
+  useEffect(() => {
+    if (selectedId && rules.length > 0) {
+      const el = document.getElementById(`automation-${selectedId}`)
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+        }, 150)
+      }
+    }
+  }, [selectedId, rules])
 
   async function update(rule: Automation, remove = false) {
     if (busy) return
@@ -44,66 +82,453 @@ function AutomationsContent() {
         ...(remove ? {} : { body: JSON.stringify({ id: rule.id, is_active: !rule.is_active }) }),
       })
       if (!response.ok) throw new Error()
-      setRules(current => remove ? current.filter(item => item.id !== rule.id) : current.map(item => item.id === rule.id ? { ...item, is_active: !item.is_active } : item))
+      setRules((current) =>
+        remove
+          ? current.filter((item) => item.id !== rule.id)
+          : current.map((item) => (item.id === rule.id ? { ...item, is_active: !item.is_active } : item))
+      )
       setDeleting(null)
-    } catch { setError("Could not save that change. Please try again.") }
-    finally { setBusy(null) }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("automation-changed"))
+      }
+    } catch {
+      setError("Could not save that change. Please try again.")
+    } finally {
+      setBusy(null)
+    }
   }
 
-  if (sessionLoading) return <div className="p-8"><Loader2 className="size-5 animate-spin" /></div>
-  if (!userId) return <p className="p-8 text-sm text-muted-foreground">Connect your Instagram account to create automations.</p>
+  if (sessionLoading)
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-8">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
 
-  const filtered = rules.filter(rule => `${rule.name} ${rule.trigger_value} ${rule.response_content?.message || ""}`.toLowerCase().includes(query.toLowerCase()))
-  const button = "rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-  return <div className="min-h-full bg-[#f7f7f8] text-[#17181a] dark:bg-[#101112] dark:text-white">
-    <div className="flex min-h-12 items-center justify-center gap-3 bg-[#242526] px-4 py-2 text-sm text-white">
-      <span className="flex size-6 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#102019]">✦</span>
-      <span className="hidden sm:inline">Turn conversations into customers with automated replies.</span>
-      <button onClick={() => setShowCreate(true)} className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold hover:bg-emerald-400">Create automation</button>
+  if (!userId)
+    return (
+      <div className="p-8 text-sm text-muted-foreground">
+        Connect your Instagram account to view and manage automations.
+      </div>
+    )
+
+  const filtered = rules.filter((rule) => {
+    const text = `${rule.name || ""} ${rule.trigger_value || ""} ${
+      rule.response_content?.message || ""
+    } ${rule.specific_media_id || ""}`.toLowerCase()
+    return text.includes(query.toLowerCase())
+  })
+
+  return (
+    <div className="min-h-full bg-background text-foreground">
+      {/* Top Banner */}
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border bg-card/60 px-5 py-2.5 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex size-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
+            ✦
+          </span>
+          <span className="text-muted-foreground hidden sm:inline">
+            Turn comments and DMs into automatic link delivery and engagement.
+          </span>
+        </div>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+        >
+          <Plus className="size-3.5" />
+          Create automation
+        </button>
+      </div>
+
+      {/* Page Header */}
+      <div className="border-b border-border bg-card/30 px-6 py-6 sm:px-10">
+        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Your Automations</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Monitor, customize and identify all your Instagram auto-reply workflows.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all shrink-0"
+          >
+            <Plus className="size-4" /> New Automation
+          </button>
+        </div>
+      </div>
+
+      <div className="mx-auto flex max-w-6xl gap-8 px-5 py-8 sm:px-10">
+        {/* Left Subnav */}
+        <aside className="hidden w-48 shrink-0 space-y-1.5 md:block">
+          <div className="px-3 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Views
+          </div>
+          <button className="flex w-full items-center justify-between rounded-lg bg-accent px-3 py-2 text-left text-sm font-medium text-foreground">
+            <span className="flex items-center gap-2">
+              <Bot className="size-4" /> All Workflows
+            </span>
+            <span className="text-xs text-muted-foreground font-semibold">{rules.length}</span>
+          </button>
+          <button
+            onClick={() => setQuery("comment")}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+          >
+            <Film className="size-4" /> Reel Comments
+          </button>
+          <button
+            onClick={() => setQuery("dm")}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+          >
+            <Inbox className="size-4" /> Direct Messages
+          </button>
+        </aside>
+
+        {/* Main Content Area */}
+        <section className="min-w-0 flex-1">
+          {edit ? (
+            <section>
+              <button
+                className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all"
+                onClick={() => setEdit(null)}
+              >
+                <ArrowLeft className="size-4" />
+                Back to automations
+              </button>
+              <CreateRuleForm
+                key={edit.id}
+                userId={userId}
+                triggerSource={edit.trigger_source}
+                editRule={edit}
+                onSuccess={() => {
+                  setEdit(null)
+                  void refresh()
+                }}
+              />
+            </section>
+          ) : (
+            <>
+              {/* Inline Create Form Modal/Card */}
+              {showCreate && (
+                <div className="mb-8 rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm animate-in fade-in-50 duration-200">
+                  <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+                    <div>
+                      <h3 className="text-base font-semibold">New Automation</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Configure comment or DM triggers, follow-gate, and instant automated replies.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowCreate(false)}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                  <QuickAutomationForm
+                    userId={userId}
+                    initialSource="comment"
+                    onSuccess={() => {
+                      setSaved(true)
+                      setShowCreate(false)
+                      void refresh()
+                    }}
+                  />
+                </div>
+              )}
+
+              {saved && (
+                <div className="mb-5 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span>✓ Automation saved and currently live on Instagram.</span>
+                </div>
+              )}
+
+              {/* Search & Filter Bar */}
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm shadow-2xs">
+                  <Search className="size-4 text-muted-foreground" />
+                  <input
+                    aria-label="Search automations"
+                    placeholder="Search by name, keyword, or reel..."
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+                  />
+                  {query && (
+                    <button onClick={() => setQuery("")} className="text-xs text-muted-foreground hover:text-foreground">
+                      Clear
+                    </button>
+                  )}
+                </label>
+              </div>
+
+              {/* Automations Listing */}
+              <section className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-sm font-semibold flex items-center gap-2">
+                    <span>Workflows</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {rules.length}
+                    </span>
+                  </h2>
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    {rules.filter((rule) => rule.is_active).length} active
+                  </span>
+                </div>
+
+                {error && (
+                  <div
+                    role="alert"
+                    className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive"
+                  >
+                    <span>{error}</span>
+                    <button onClick={() => void refresh()} className="font-semibold underline">
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                    <p className="mt-2 text-xs text-muted-foreground">Loading your automations...</p>
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-card/30">
+                    <p className="text-sm font-medium text-foreground">
+                      {query ? "No automations match your search." : "No automations created yet."}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {query ? "Try clearing your search query." : "Click 'New Automation' above to create your first auto-reply."}
+                    </p>
+                    {!query && (
+                      <button
+                        onClick={() => setShowCreate(true)}
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+                      >
+                        <Plus className="size-3.5" />
+                        Create first automation
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filtered.map((rule) => {
+                      const isAny = rule.trigger_value === "*" || rule.trigger_type === "reply_all"
+                      const isFollowGate = Boolean(rule.response_content?.check_follow)
+                      const isSpecific = Boolean(rule.specific_media_id)
+                      const hasPublicReply = Boolean(
+                        rule.response_content?.reply_mode === "both" ||
+                          (rule.response_content as any)?.reply_comment ||
+                          (rule.response_content as any)?.comment_reply_text
+                      )
+                      const publicText =
+                        (rule.response_content as any)?.comment_reply_text ||
+                        rule.response_content?.public_replies?.[0]
+                      const isTargeted = selectedId === rule.id
+
+                      return (
+                        <div
+                          key={rule.id}
+                          id={`automation-${rule.id}`}
+                          className={cn(
+                            "relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all duration-200",
+                            isTargeted
+                              ? "ring-2 ring-primary ring-offset-2 border-primary/60 bg-primary/[0.03]"
+                              : "hover:border-border/80 hover:shadow-sm"
+                          )}
+                        >
+                          {/* Top Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3.5">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span
+                                className={cn(
+                                  "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                                  rule.is_active
+                                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                {rule.trigger_source === "comment" ? (
+                                  <Film className="size-5" />
+                                ) : (
+                                  <MessageSquare className="size-5" />
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-semibold text-foreground truncate">
+                                    {rule.name || (isAny ? "Reply to any comment" : `Reply to ${rule.trigger_value}`)}
+                                  </h3>
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide uppercase",
+                                      rule.is_active
+                                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                        : "bg-muted text-muted-foreground"
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "size-1.5 rounded-full",
+                                        rule.is_active ? "bg-emerald-500" : "bg-muted-foreground"
+                                      )}
+                                    />
+                                    {rule.is_active ? "Active" : "Paused"}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Created {new Date(rule.created_at).toLocaleDateString(undefined, {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {deleting === rule.id ? (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="text-muted-foreground">Delete this workflow?</span>
+                                  <button
+                                    disabled={!!busy}
+                                    onClick={() => void update(rule, true)}
+                                    className="rounded-lg bg-destructive px-3 py-1.5 font-semibold text-destructive-foreground hover:bg-destructive/90 transition-all"
+                                  >
+                                    Delete
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleting(null)}
+                                    className="rounded-lg border border-border px-3 py-1.5 font-medium hover:bg-accent transition-all"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    disabled={!!busy}
+                                    onClick={() => void update(rule)}
+                                    aria-label={`${rule.is_active ? "Pause" : "Activate"} ${rule.name}`}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs",
+                                      rule.is_active
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                                        : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"
+                                    )}
+                                  >
+                                    {busy === rule.id ? <Loader2 className="size-3 animate-spin" /> : null}
+                                    {rule.is_active ? "Pause" : "Activate"}
+                                  </button>
+                                  <button
+                                    onClick={() => setEdit(rule)}
+                                    aria-label={`Edit ${rule.name}`}
+                                    className="inline-flex size-8 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+                                  >
+                                    <Pencil className="size-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleting(rule.id)}
+                                    aria-label={`Delete ${rule.name}`}
+                                    className="inline-flex size-8 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Identification & Condition Badges */}
+                          <div className="mt-3.5 flex flex-wrap items-center gap-2">
+                            {/* Trigger Mode */}
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs">
+                              <span className="text-muted-foreground">Trigger:</span>
+                              <span className="font-semibold text-foreground">
+                                {isAny ? "💬 Any Comment" : `🔑 "${rule.trigger_value}"`}
+                              </span>
+                            </div>
+
+                            {/* Target Reel */}
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs">
+                              <span className="text-muted-foreground">Target:</span>
+                              {isSpecific ? (
+                                <span className="font-semibold text-primary flex items-center gap-1">
+                                  <Film className="size-3" /> Specific Reel ({rule.specific_media_id})
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-foreground flex items-center gap-1">
+                                  <Globe className="size-3" /> All Reels & Posts
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Follow-Gate */}
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-xs">
+                              <span className="text-muted-foreground">Condition:</span>
+                              {isFollowGate ? (
+                                <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                  <Lock className="size-3" /> Follow-Gate (Must follow @vamshi__verse)
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-foreground">
+                                  🔓 Open to all commenters
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Reply Previews Grid */}
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            {/* Private DM Preview */}
+                            <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                <span className="text-primary">📥 Private DM Reply</span>
+                              </div>
+                              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-3">
+                                {rule.response_content?.message ||
+                                  rule.response_content?.card?.title ||
+                                  "(No message content set)"}
+                              </p>
+                            </div>
+
+                            {/* Public Comment Reply */}
+                            <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                <span>💬 Public Comment Reply</span>
+                              </div>
+                              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed italic line-clamp-3">
+                                {hasPublicReply && publicText ? `"${publicText}"` : "None (DM reply only)"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <AssistantSettings userId={userId} />
+            </>
+          )}
+        </section>
+      </div>
     </div>
-    <div className="border-b border-black/10 bg-white px-6 py-5 dark:border-white/10 dark:bg-[#151617] sm:px-10">
-      <div className="mx-auto max-w-6xl"><h1 className="text-2xl font-semibold tracking-tight">Automation</h1></div>
-    </div>
-    <div className="mx-auto flex max-w-6xl gap-8 px-5 py-8 sm:px-10">
-      <aside className="hidden w-44 shrink-0 space-y-1 md:block">
-        {[{ label: "My Automations", icon: <Bot className="size-4" /> }, { label: "Basic", icon: <Grid2X2 className="size-4" /> }, { label: "Sequences", icon: <Inbox className="size-4" /> }].map((item, index) => <button key={item.label} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${index === 0 ? "bg-black/10 font-medium dark:bg-white/10" : "text-black/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"}`}>{item.icon}{item.label}</button>)}
-      </aside>
-      <section className="min-w-0 flex-1">
-        {edit ? <section>
-      <button className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setEdit(null)}><ArrowLeft className="size-4" />Back to auto replies</button>
-      <CreateRuleForm key={edit.id} userId={userId} triggerSource={edit.trigger_source} editRule={edit} onSuccess={() => { setEdit(null); void refresh() }} />
-    </section> : <>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-2xl font-semibold">My Automations</h2><p className="mt-1 text-sm text-black/50 dark:text-white/50">Create, manage and monitor your Instagram workflows.</p></div><button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#1473e6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0d63cc]"><Plus className="size-4" /> New Automation</button></div>
-      {showCreate && <div className="mb-8 rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#18191b] sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">New automation</h3><p className="mt-1 text-xs text-black/50 dark:text-white/50">Choose a trigger and write the reply.</p></div><button onClick={() => setShowCreate(false)} className="rounded-md p-2 text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"><X className="size-4" /></button></div><QuickAutomationForm userId={userId} initialSource="comment" onSuccess={() => { setSaved(true); setShowCreate(false); void refresh() }} /></div>}
-      {saved && <p role="status" className="mb-4 text-xs text-muted-foreground">Saved and active.</p>}
-      <div className="mb-6 flex flex-wrap items-center gap-3"><label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-sm dark:border-white/10 dark:bg-[#18191b]"><Search className="size-4 text-black/40 dark:text-white/40" /><input aria-label="Search automations" placeholder="Search all automations" value={query} onChange={event => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-black/40 dark:placeholder:text-white/40" /></label><button className="inline-flex h-10 items-center gap-2 rounded-lg border border-dashed border-black/20 px-3 text-sm text-black/60 hover:bg-black/5 dark:border-white/20 dark:text-white/60 dark:hover:bg-white/5"><FolderPlus className="size-4" /> New folder</button></div>
-      <section className="mt-10">
-        <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-medium">Automations <span className="ml-1 text-muted-foreground">{rules.length}</span></h2><span className="text-xs text-black/40 dark:text-white/40">{rules.filter(rule => rule.is_active).length} active</span></div>
-        {error && <div role="alert" className="mb-3 flex items-center justify-between text-sm"><span>{error}</span><button onClick={() => void refresh()} className="underline">Retry</button></div>}
-        {loading ? <Loader2 className="my-8 size-5 animate-spin text-muted-foreground" /> :
-          <div className="divide-y divide-border border-y border-border">
-            {filtered.map(rule => <div key={rule.id} className="flex flex-wrap items-center gap-3 py-4 sm:flex-nowrap">
-              <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{rule.trigger_value}</p><p className="mt-1 truncate text-sm text-muted-foreground">{rule.response_content?.message || rule.response_content?.card?.title || rule.name}</p><p className="mt-1.5 text-xs text-muted-foreground">{rule.trigger_source === "dm" ? "Direct message" : rule.trigger_source === "comment" ? "Post comment" : "Story"}{rule.specific_media_id ? " · Selected post" : ""}</p></div>
-              {deleting === rule.id ? <div className="flex items-center gap-2 text-xs"><span>Delete this reply?</span><button disabled={!!busy} onClick={() => void update(rule, true)} className="rounded-md bg-primary px-3 py-2 text-primary-foreground">Delete</button><button onClick={() => setDeleting(null)} className={button}>Cancel</button></div> :
-                <div className="flex items-center gap-1">
-                  <button disabled={!!busy} onClick={() => void update(rule)} aria-label={`${rule.is_active ? "Pause" : "Activate"} ${rule.name}`} aria-pressed={rule.is_active} className="mr-2 flex min-w-16 items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-xs">{busy === rule.id ? <Loader2 className="size-3 animate-spin" /> : <span className={`size-1.5 rounded-full ${rule.is_active ? "bg-foreground" : "bg-muted-foreground"}`} />}{rule.is_active ? "On" : "Paused"}</button>
-                  <button onClick={() => setEdit(rule)} aria-label={`Edit ${rule.name}`} className={button}><Pencil className="size-3.5" /></button>
-                  <button onClick={() => setDeleting(rule.id)} aria-label={`Delete ${rule.name}`} className={button}><Trash2 className="size-3.5" /></button>
-                </div>}
-            </div>)}
-            {!filtered.length && <p className="py-8 text-sm text-muted-foreground">{query ? "No matching replies." : "No replies yet. Add your first keyword and answer above."}</p>}
-          </div>}
-      </section>
-      <AssistantSettings userId={userId} />
-    </>}
-      </section>
-    </div>
-  </div>
+  )
 }
 
 export default function AutomationsPage() {
   return (
-    <Suspense fallback={<div className="p-8 flex items-center justify-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>}>
+    <Suspense
+      fallback={
+        <div className="p-8 flex items-center justify-center">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
       <AutomationsContent />
     </Suspense>
   )
