@@ -24,13 +24,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { code } = body
+    let { code } = body
     if (!code) return NextResponse.json({ error: "No code" }, { status: 400 })
 
+    // Facebook OAuth often appends '#_' to codes
+    const cleanCode = code.replace(/#_$/, "").trim()
+
     // 1. Env Vars
-    const clientId = process.env.INSTAGRAM_APP_ID
+    let clientId = process.env.INSTAGRAM_APP_ID || "1491272917394467"
+    if (clientId === "1602487991677280") {
+      clientId = "1491272917394467"
+    }
     const clientSecret = process.env.INSTAGRAM_APP_SECRET
-    const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI
+    const redirectUri = process.env.NEXT_PUBLIC_INSTAGRAM_REDIRECT_URI || "https://instagram-automation-brown.vercel.app/api/instagram/callback"
 
     if (!clientId || !clientSecret || !redirectUri) {
       throw new Error("Missing Env Vars: Check INSTAGRAM_APP_ID")
@@ -46,7 +52,7 @@ export async function POST(request: NextRequest) {
       client_secret: clientSecret,
       grant_type: "authorization_code",
       redirect_uri: redirectUri,
-      code,
+      code: cleanCode,
     })
 
     const igRes = await fetch("https://api.instagram.com/oauth/access_token", {
@@ -67,7 +73,13 @@ export async function POST(request: NextRequest) {
     } else {
       // Fallback: Exchange via Meta Graph API (Unified Login / Facebook Login for Business)
       console.log("[v0] Exchanging code via Meta Graph API...")
-      const fbTokenUrl = `https://graph.facebook.com/v24.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+      const fbParams = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        code: cleanCode,
+      })
+      const fbTokenUrl = `https://graph.facebook.com/v24.0/oauth/access_token?${fbParams.toString()}`
       const fbRes = await fetch(fbTokenUrl)
       const fbData = await fbRes.json()
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 
 export function useInstagramSession() {
@@ -11,13 +11,15 @@ export function useInstagramSession() {
 
     const searchParams = useSearchParams()
     const router = useRouter()
+    const isExchangingRef = useRef(false)
 
     useEffect(() => {
         const code = searchParams.get("code")
 
         const handleSession = async () => {
             // CASE A: New Login from Instagram
-            if (code) {
+            if (code && !isExchangingRef.current) {
+                isExchangingRef.current = true
                 try {
                     const res = await fetch("/api/instagram/callback", {
                         method: "POST",
@@ -35,9 +37,13 @@ export function useInstagramSession() {
                         setProfilePic(data.profilePic || null)
                         // Remove code from URL
                         router.replace("/dashboard")
+                    } else {
+                        console.error("Backend login error:", data.error)
                     }
                 } catch (err) {
                     console.error("Login failed:", err)
+                } finally {
+                    isExchangingRef.current = false
                 }
             }
             // CASE B: Restore Session from LocalStorage
