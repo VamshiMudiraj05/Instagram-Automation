@@ -10,3 +10,4 @@ async function checkAutomations() {
   console.log('Recent messages:', messages);
 }
 checkAutomations();
+
