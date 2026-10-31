@@ -89,12 +89,13 @@ export function PostSelector({
     if (!manualUrl.trim()) return
     const url = manualUrl.trim()
     const match = url.match(/(?:reel|p)\/([A-Za-z0-9_-]+)/)
-    const mediaId = match ? match[1] : url
+    const shortcode = match ? match[1] : url.replace(/[^A-Za-z0-9_-]/g, "")
+    const isReel = url.includes("/reel/") || !url.includes("/p/")
     const customItem: InstagramMediaItem = {
-      id: mediaId,
-      caption: `Post: ${url.startsWith("http") ? url : "ID " + mediaId}`,
-      media_type: url.includes("/reel/") ? "VIDEO" : "IMAGE",
-      permalink: url.startsWith("http") ? url : `https://instagram.com/p/${mediaId}`,
+      id: shortcode,
+      caption: `Instagram Reel · ${shortcode}`,
+      media_type: isReel ? "VIDEO" : "IMAGE",
+      permalink: url.startsWith("http") ? url : `https://www.instagram.com/reel/${shortcode}/`,
       image_url: null,
       timestamp: new Date().toISOString(),
     }
@@ -177,7 +178,7 @@ export function PostSelector({
         <div className="rounded-xl border border-border bg-card/60 p-3.5 space-y-3 animate-in fade-in duration-200">
           {currentSelectedMedia && !isBrowsing ? (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card shadow-xs">
-              <div className="w-14 h-14 rounded-md overflow-hidden bg-muted shrink-0 border border-border relative">
+              <div className="w-14 h-14 rounded-md overflow-hidden bg-gradient-to-tr from-pink-500/20 via-purple-500/10 to-orange-500/20 shrink-0 border border-border relative flex items-center justify-center">
                 {currentSelectedMedia.image_url ? (
                   <img
                     src={currentSelectedMedia.image_url}
@@ -185,9 +186,7 @@ export function PostSelector({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <Film className="w-5 h-5" />
-                  </div>
+                  <Film className="w-6 h-6 text-pink-500" />
                 )}
                 <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 text-[8px] font-mono-ui text-white uppercase">
                   {currentSelectedMedia.media_type === "VIDEO" ? "Reel" : "Post"}
@@ -195,27 +194,30 @@ export function PostSelector({
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-yellow-foreground bg-accent-yellow/10 px-1.5 py-0.5 rounded">
-                    Selected Post
+                    Selected Reel
                   </span>
                   {currentSelectedMedia.permalink && (
                     <a
                       href={currentSelectedMedia.permalink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 font-mono-ui"
                       title="View on Instagram"
                     >
+                      <span>View on Instagram</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
-                <p className="text-xs text-foreground font-medium line-clamp-1">
-                  {currentSelectedMedia.caption || "Instagram Post #" + currentSelectedMedia.id.slice(-6)}
+                <p className="text-xs text-foreground font-semibold truncate">
+                  {currentSelectedMedia.caption && !currentSelectedMedia.caption.startsWith("Post: ")
+                    ? currentSelectedMedia.caption
+                    : `Instagram Reel · ${currentSelectedMedia.id}`}
                 </p>
-                <p className="text-[10px] text-muted-foreground font-mono-ui mt-0.5">
-                  ID: {currentSelectedMedia.id}
+                <p className="text-[10px] text-muted-foreground font-mono-ui mt-0.5 truncate">
+                  {currentSelectedMedia.permalink || `https://www.instagram.com/reel/${currentSelectedMedia.id}/`}
                 </p>
               </div>
 
