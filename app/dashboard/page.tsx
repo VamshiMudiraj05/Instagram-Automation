@@ -43,28 +43,6 @@ export default function DashboardPage() {
         </Link>
       </header>
 
-      {/* Quick Create Automation Banner */}
-      <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border bg-gradient-to-r from-card via-card to-primary/5 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <Sparkles className="size-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Comment-to-DM Reel Automation</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Automatically reply to comments and send private DMs for your reels.
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/dashboard/automations?new=true"
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all shrink-0"
-        >
-          <Plus className="size-4" />
-          Create Automation
-        </Link>
-      </div>
-
       <section className="grid border-b border-border sm:grid-cols-2 lg:grid-cols-4" aria-label="Account summary">
         <Metric label="Workflows" value={metrics?.totalAutomations ?? 0} icon={Workflow} />
         <Metric label="Active triggers" value={metrics?.activeTriggers ?? 0} icon={CheckCircle2} />
