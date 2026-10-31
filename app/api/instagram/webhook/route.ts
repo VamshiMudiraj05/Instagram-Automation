@@ -441,6 +441,35 @@ export async function POST(request: NextRequest) {
                           event_type: "dm_dispatch",
                           data: { rule: match.name, commentId, dmRes },
                         }).catch(() => null)
+
+                        // Record conversation and outgoing message for dashboard stats
+                        try {
+                          const commenterUsername = change.value?.from?.username || "instagram_user"
+                          const { data: conv } = await supabase
+                            .from("conversations")
+                            .upsert({
+                              user_id: user.id,
+                              recipient_id: senderId,
+                              recipient_username: commenterUsername,
+                              last_message_at: new Date().toISOString(),
+                            }, { onConflict: "user_id,recipient_id" })
+                            .select("id")
+                            .single()
+
+                          if (conv?.id) {
+                            await supabase.from("messages").insert({
+                              id: `mid_comment_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                              conversation_id: conv.id,
+                              user_id: user.id,
+                              sender_id: user.business_account_id || user.id,
+                              sender_username: user.username,
+                              content: responsePreviewText(content),
+                              is_from_instagram: false,
+                            })
+                          }
+                        } catch (statErr) {
+                          console.warn("[webhook] Failed to log stats message:", statErr)
+                        }
                       }
                     }
         }
