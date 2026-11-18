@@ -7,6 +7,7 @@ export async function GET() {
     const { data: user } = await supabase
       .from("users")
       .select("id, username")
+      .neq("username", "Automation System User")
       .order("updated_at", { ascending: false })
       .limit(1)
       .single()

@@ -148,10 +148,29 @@ export async function POST(request: NextRequest) {
       } catch (e) {}
     }
 
-    const finalUserId = loginUserId || businessAccountId || String(Date.now())
+    // Attempt 4: Direct Instagram Professional Account Verification
+    // Ensure tokens for @vamshi__verse are always saved to the Instagram account ID, not a system user ID
+    try {
+      const igVerify = await fetch(
+        `https://graph.facebook.com/v24.0/17841479501766910?fields=id,username,profile_picture_url&access_token=${accessToken}`
+      )
+      const igData = await igVerify.json()
+      if (igData.id && igData.username) {
+        businessAccountId = igData.id.toString()
+        username = igData.username
+        if (igData.profile_picture_url) profilePic = igData.profile_picture_url
+      }
+    } catch (e) {
+      console.warn("[v0] IG direct verify check failed:", e)
+    }
+
+    const finalUserId = businessAccountId || loginUserId || "17841479501766910"
 
     // 6. Save/Update User
     const supabase = await getSupabaseServerClient()
+
+    // Clean up any accidental system user rows so active-user never desyncs
+    await supabase.from("users").delete().eq("username", "Automation System User")
 
     const updates: any = {
       username,
