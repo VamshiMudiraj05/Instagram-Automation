@@ -37,7 +37,14 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
   })
 }
 
-const DEFAULT_PUBLIC_REPLIES = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
+const DEFAULT_PUBLIC_REPLIES = [
+  "Check your DMs! 📥",
+  "Sent you the link! 🔥",
+  "Check your inbox! ✨",
+  "Just sent it to your DMs! 📩",
+  "Check your messages! 👍",
+  "Sent! Check your DMs 🚀",
+]
 
 // Max times we'll send the gate card for an unverifiable follow status on a single unlock event.
 // After this, we send a single "couldn't verify your follow" message and stop spamming the user.
@@ -126,10 +133,11 @@ async function sendAutomationResponse(
   opts: { skipTyping?: boolean } = {},
 ) {
   const delaySeconds = Number(content.delay_seconds) || 0
+  const waitMs = delaySeconds > 0 ? delaySeconds * 1000 : Math.floor(Math.random() * 3000) + 2000 // 2-5s human jitter
   const useTyping = content.typing_indicator === true && recipient.id && !opts.skipTyping
 
   if (useTyping) await sendSenderAction(token, recipient.id!, "typing_on")
-  if (delaySeconds > 0) await sleep(delaySeconds * 1000)
+  await sleep(waitMs)
 
   const quickReplies = Array.isArray(content.quick_replies)
     ? content.quick_replies
@@ -137,16 +145,24 @@ async function sendAutomationResponse(
         .map((q: any) => ({ title: q.title, payload: q.payload || `QR_${q.title.toUpperCase().replace(/\s+/g, "_")}` }))
     : undefined
 
+  // Anti-spam message variator: slightly vary greetings so Meta doesn't flag identical string hash
+  const getMessageText = (msg: string) => {
+    if (!msg) return msg
+    const greetings = ["", "Hey! ", "Hi there! ", "Here you go: ", "Hey, "]
+    const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)]
+    return randomGreeting ? `${randomGreeting}${msg}` : msg
+  }
+
   let result
   if (content.media?.url) {
     result = await sendMediaDM(token, recipient, content.media.type || "image", content.media.url)
     if (result.ok && content.message) {
-      result = await sendTextDM(token, recipient, content.message, quickReplies)
+      result = await sendTextDM(token, recipient, getMessageText(content.message), quickReplies)
     }
   } else if (content.card) {
     result = await sendCardDM(token, recipient, content.card)
   } else if (content.message) {
-    result = await sendTextDM(token, recipient, content.message, quickReplies)
+    result = await sendTextDM(token, recipient, getMessageText(content.message), quickReplies)
   } else {
     result = { ok: false, error: "empty content" }
   }
@@ -491,6 +507,14 @@ export async function POST(request: NextRequest) {
                           { skipTyping: true },
                         )
                         console.log("[webhook] Private DM reply result:", JSON.stringify(dmRes))
+                        if (dmRes?.error?.code === 368) {
+                          console.warn(`[webhook] ⚠️ Meta anti-spam block 368 detected for comment ${commentId}. Sending bio fallback.`)
+                          await replyToComment(
+                            user.access_token,
+                            commentId,
+                            "If the DM doesn't arrive, check the direct link in my bio! 🔗",
+                          ).catch(() => null)
+                        }
                         await supabase.from("webhook_events").insert({
                           event_type: "dm_dispatch",
                           data: { rule: match.name, commentId, dmRes },
