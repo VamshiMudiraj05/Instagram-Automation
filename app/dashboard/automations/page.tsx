@@ -478,20 +478,46 @@ function AutomationsContent() {
                                 </span>
                               )}
                             </div>
+
+                            {/* Button Card Badge */}
+                            {rule.response_content?.card && (
+                              <div className="inline-flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs text-primary font-semibold">
+                                <span>🔘 Tap Button: {rule.response_content.card.buttons?.[0]?.title || "Open Link"}</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Reply Previews Grid */}
                           <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             {/* Private DM Preview */}
                             <div className="rounded-xl border border-border/80 bg-muted/20 p-3">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                              <div className="flex items-center justify-between text-xs font-semibold text-foreground">
                                 <span className="text-primary">📥 Private DM Reply</span>
+                                {rule.response_content?.card && (
+                                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                    Button Card
+                                  </span>
+                                )}
                               </div>
-                              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-3">
-                                {rule.response_content?.message ||
-                                  rule.response_content?.card?.title ||
-                                  "(No message content set)"}
-                              </p>
+                              {rule.response_content?.card ? (
+                                <div className="mt-2 space-y-1.5">
+                                  <p className="text-xs font-semibold text-foreground">
+                                    {rule.response_content.card.title}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    {rule.response_content.card.subtitle || rule.response_content.message}
+                                  </p>
+                                  {rule.response_content.card.buttons?.[0] && (
+                                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                                      <span>{rule.response_content.card.buttons[0].title}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-3">
+                                  {rule.response_content?.message || "(No message content set)"}
+                                </p>
+                              )}
                             </div>
 
                             {/* Public Comment Reply */}

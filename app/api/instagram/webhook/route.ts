@@ -161,6 +161,10 @@ async function sendAutomationResponse(
     }
   } else if (content.card) {
     result = await sendCardDM(token, recipient, content.card)
+    if (!result.ok && content.message) {
+      console.warn("[webhook] Card DM delivery failed, falling back to text DM:", result.error)
+      result = await sendTextDM(token, recipient, getMessageText(content.message), quickReplies)
+    }
   } else if (content.message) {
     result = await sendTextDM(token, recipient, getMessageText(content.message), quickReplies)
   } else {

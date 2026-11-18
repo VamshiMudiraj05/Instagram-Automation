@@ -16,6 +16,10 @@ export function QuickAutomationForm({ userId, initialSource = "comment", onSucce
   const [triggerMode, setTriggerMode] = useState<"keyword" | "any">("keyword")
   const [keyword, setKeyword] = useState("")
   const [answer, setAnswer] = useState("")
+  const [useButtonCard, setUseButtonCard] = useState(false)
+  const [cardTitle, setCardTitle] = useState("Job Links & Information")
+  const [buttonTitle, setButtonTitle] = useState("🔗 View Job Links")
+  const [buttonUrl, setButtonUrl] = useState("")
   const [checkFollow, setCheckFollow] = useState(false)
   const [replyPublicly, setReplyPublicly] = useState(true)
   const [publicReplyText, setPublicReplyText] = useState("Check your DMs! 📥")
@@ -40,6 +44,27 @@ export function QuickAutomationForm({ userId, initialSource = "comment", onSucce
       ? "Reply to any comment" + (selectedMedia ? ` on ${selectedMedia.id}` : "")
       : "Reply to " + keyword.trim()
 
+    const contentPayload: any = {
+      message: answer.trim(),
+      reply_mode: source === "comment" && replyPublicly ? "both" : "dm_only",
+      check_follow: checkFollow,
+      public_replies: replyPublicly && publicReplyText.trim() ? [publicReplyText.trim()] : ["Check your DMs! 📥"],
+    }
+
+    if (useButtonCard && buttonUrl.trim()) {
+      contentPayload.card = {
+        title: cardTitle.trim() || "Here is your link",
+        subtitle: answer.trim() || "Tap the button below to view and apply:",
+        buttons: [
+          {
+            type: "web_url",
+            title: buttonTitle.trim() || "🔗 Open Link",
+            url: buttonUrl.trim(),
+          },
+        ],
+      }
+    }
+
     try {
       const response = await fetch("/api/automations", {
         method: "POST",
@@ -50,12 +75,7 @@ export function QuickAutomationForm({ userId, initialSource = "comment", onSucce
           trigger_source: source,
           trigger_type: isAny ? "reply_all" : (source === "story" ? "reply" : "keyword"),
           trigger_value: finalTriggerValue,
-          content: {
-            message: answer.trim(),
-            reply_mode: source === "comment" && replyPublicly ? "both" : "dm_only",
-            check_follow: checkFollow,
-            public_replies: replyPublicly && publicReplyText.trim() ? [publicReplyText.trim()] : ["Check your DMs! 📥"],
-          },
+          content: contentPayload,
           specific_media_id: source === "comment" ? selectedMediaId : null,
         }),
       })
@@ -191,10 +211,87 @@ export function QuickAutomationForm({ userId, initialSource = "comment", onSucce
               rows={3}
               value={answer}
               onChange={event => setAnswer(event.target.value)}
-              placeholder="Here is your link: https://drive.google.com/..."
+              placeholder="Here are the job links and application details..."
               className="mt-2 w-full resize-y rounded-md border border-border bg-muted/30 p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring"
             />
           </label>
+
+          {/* Interactive Button Card Option (Anti-Spam Link Delivery) */}
+          <div className="pt-3 border-t border-border space-y-3">
+            <div className="flex items-start gap-3">
+              <input
+                id="use-button-card-toggle"
+                type="checkbox"
+                checked={useButtonCard}
+                onChange={e => setUseButtonCard(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+              />
+              <label htmlFor="use-button-card-toggle" className="cursor-pointer select-none flex-1">
+                <span className="text-xs font-semibold text-foreground flex flex-wrap items-center gap-2">
+                  <span>🔘 Deliver as an Interactive Button Card</span>
+                  <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 font-bold uppercase tracking-wide">
+                    Anti-Spam · Safe
+                  </span>
+                </span>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  Recommended for sending links. Instead of raw text URLs that Instagram can hide, sends a clean native tap button (<span className="font-semibold text-primary">🔗 View Link</span>).
+                </p>
+              </label>
+            </div>
+
+            {useButtonCard && (
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-3 animate-in fade-in-50 duration-150">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted-foreground">Card Title</span>
+                    <input
+                      type="text"
+                      value={cardTitle}
+                      onChange={e => setCardTitle(e.target.value)}
+                      placeholder="e.g. Job Links & Application"
+                      className="mt-1 w-full text-xs bg-card border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted-foreground">Button Text</span>
+                    <input
+                      type="text"
+                      value={buttonTitle}
+                      onChange={e => setButtonTitle(e.target.value)}
+                      placeholder="e.g. 🔗 View Job Links"
+                      className="mt-1 w-full text-xs bg-card border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-[11px] font-medium text-muted-foreground">Destination URL</span>
+                  <input
+                    required={useButtonCard}
+                    type="url"
+                    value={buttonUrl}
+                    onChange={e => setButtonUrl(e.target.value)}
+                    placeholder="https://vamshi.is-a.dev/?view=jobs"
+                    className="mt-1 w-full text-xs bg-card border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  />
+                </label>
+
+                {/* Live Preview */}
+                <div className="mt-2 pt-2.5 border-t border-border">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
+                    Instagram In-App Preview
+                  </span>
+                  <div className="max-w-xs mx-auto rounded-xl border border-border bg-card p-3 shadow-xs text-center">
+                    <p className="text-xs font-semibold text-foreground truncate">{cardTitle || "Job Links & Application"}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{answer || "Tap below to view and apply:"}</p>
+                    <div className="mt-2.5 w-full rounded-lg bg-primary/10 border border-primary/20 py-1.5 text-xs font-semibold text-primary flex items-center justify-center gap-1.5 shadow-2xs">
+                      <span>{buttonTitle || "🔗 View Job Links"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Follower Gate Toggle */}
           <div className="pt-2 border-t border-border flex items-start gap-3">
