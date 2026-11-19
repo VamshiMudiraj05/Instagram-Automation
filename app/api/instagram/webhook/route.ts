@@ -513,16 +513,24 @@ export async function POST(request: NextRequest) {
                         console.log("[webhook] Private DM reply result:", JSON.stringify(dmRes))
                         if (dmRes?.error?.code === 368) {
                           console.warn(`[webhook] ⚠️ Meta anti-spam block 368 detected for comment ${commentId}. Sending bio fallback.`)
-                          await replyToComment(
-                            user.access_token,
-                            commentId,
-                            "If the DM doesn't arrive, check the direct link in my bio! 🔗",
-                          ).catch(() => null)
+                          try {
+                            await replyToComment(
+                              user.access_token,
+                              commentId,
+                              "If the DM doesn't arrive, check the direct link in my bio! 🔗",
+                            )
+                          } catch (bioErr) {
+                            console.warn("[webhook] Failed to send bio fallback comment:", bioErr)
+                          }
                         }
-                        await supabase.from("webhook_events").insert({
-                          event_type: "dm_dispatch",
-                          data: { rule: match.name, commentId, dmRes },
-                        }).catch(() => null)
+                        try {
+                          await supabase.from("webhook_events").insert({
+                            event_type: "dm_dispatch",
+                            data: { rule: match.name, commentId, dmRes },
+                          })
+                        } catch (logErr) {
+                          // Ignore non-critical debug log failure
+                        }
 
                         await recordCommentReplyStats(responsePreviewText(content))
                       } else {
